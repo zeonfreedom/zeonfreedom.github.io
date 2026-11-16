@@ -1,0 +1,470 @@
+---
+title: Конвертер офлайн-конверсий Яндекс Метрики
+description: Локальный конвертер в CSV для офлайн-конверсий Метрики. ClientId и yclid, пакетная обработка, автоперевод МСК в Unix Timestamp.
+icon: 📊
+order: 20
+---
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Локальный конвертер данных в CSV-формат для офлайн-конверсий Яндекс Метрики. Поддержка ClientId и yclid, пакетная обработка, автоматический перевод МСК в Unix Timestamp.">
+    <title>Конвертер офлайн-конверсий Яндекс Метрики</title>
+    <style>
+        :root {
+            --bg: #f4f5f7;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --border: #d1d5db;
+            --primary: #ffcc00;
+            --primary-hover: #f2c200;
+            --accent: #2563eb;
+            --error: #dc2626;
+        }
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 24px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background: var(--card);
+            max-width: 900px;
+            width: 100%;
+            border-radius: 12px;
+            padding: 28px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        }
+        .back-link {
+            display: inline-block;
+            font-size: 13px;
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        .back-link:hover { text-decoration: underline; }
+        h1 { margin: 0 0 8px 0; font-size: 22px; }
+        p.subtitle { margin: 0 0 24px 0; color: var(--muted); font-size: 14px; }
+
+        /* Переключатель режимов */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            background: #eef0f4;
+            padding: 4px;
+            border-radius: 8px;
+            width: fit-content;
+        }
+        .tab {
+            padding: 8px 18px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            color: var(--muted);
+            transition: 0.2s;
+        }
+        .tab.active {
+            background: var(--card);
+            color: var(--text);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* Настройки по умолчанию */
+        .defaults-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            margin-bottom: 20px;
+            padding: 16px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--muted);
+        }
+        .field input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .field input:focus { outline: none; border-color: var(--accent); }
+
+        /* Поля ввода данных */
+        .input-section { margin-bottom: 20px; }
+        .input-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .input-header label { font-weight: 600; font-size: 14px; }
+        .hint { font-size: 12px; color: var(--muted); }
+        .inputs-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        @media (max-width: 640px) {
+            .inputs-grid { grid-template-columns: 1fr; }
+        }
+        .input-col { display: flex; flex-direction: column; }
+        .input-col .col-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+            resize: vertical;
+        }
+        textarea:focus { outline: none; border-color: var(--accent); }
+
+        /* Кнопки */
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+        button.btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .btn-primary { background: var(--primary); color: #000; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-secondary { background: #e5e7eb; color: var(--text); }
+        .btn-secondary:hover { background: #d1d5db; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-outline:hover { background: #f3f4f6; }
+
+        /* Предпросмотр CSV */
+        .preview-section { margin-top: 8px; }
+        .preview-box {
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+            white-space: pre;
+            overflow-x: auto;
+            line-height: 1.5;
+        }
+        .error-msg {
+            color: var(--error);
+            font-size: 13px;
+            margin-top: 8px;
+            font-weight: 500;
+            min-height: 1em;
+        }
+        .badge {
+            display: inline-block;
+            background: #dbeafe;
+            color: #1e40af;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
+</head>
+<body>
+
+<main class="container" role="main">
+
+    <a href="../" class="back-link">← Все приложения</a>
+
+    <!-- Заголовок -->
+    <header>
+        <h1>Генератор CSV для Яндекс Метрики</h1>
+        <p class="subtitle">Автоматически переводит дату (МСК) в Unix Timestamp и добавляет запас +3 часа</p>
+    </header>
+
+    <!-- Режимы работы -->
+    <section aria-labelledby="mode-heading">
+        <h2 id="mode-heading" class="visually-hidden">Режим работы</h2>
+        <div class="tabs" role="tablist" aria-label="Режим идентификатора">
+            <button class="tab active"
+                    role="tab"
+                    aria-selected="true"
+                    onclick="setMode('ClientId', this)">Режим ClientId</button>
+            <button class="tab"
+                    role="tab"
+                    aria-selected="false"
+                    onclick="setMode('yclid', this)">Режим yclid</button>
+        </div>
+    </section>
+
+    <!-- Общие параметры -->
+    <section aria-labelledby="defaults-heading">
+        <h2 id="defaults-heading" class="visually-hidden">Общие параметры</h2>
+        <div class="defaults-grid">
+            <div class="field">
+                <label for="defTarget">Цель (Target)</label>
+                <input type="text" id="defTarget" value="guide_purchase" oninput="generate()">
+            </div>
+            <div class="field">
+                <label for="defPrice">Цена по умолчанию (Price)</label>
+                <input type="text" id="defPrice" value="495" oninput="generate()">
+            </div>
+            <div class="field">
+                <label for="defCurrency">Валюта (Currency)</label>
+                <input type="text" id="defCurrency" value="RUB" oninput="generate()">
+            </div>
+            <div class="field">
+                <label for="offsetHours">
+                    Сдвиг времени (часы)
+                    <span class="badge">МСК UTC+3</span>
+                </label>
+                <input type="number" id="offsetHours" value="3" oninput="generate()">
+            </div>
+        </div>
+    </section>
+
+    <!-- Ввод строк -->
+    <section class="input-section" aria-labelledby="inputs-heading">
+        <div class="input-header">
+            <label id="inputs-heading">Вставьте данные</label>
+            <span class="hint" id="inputsHint">Каждая строка в обоих полях объединяется по порядку. В поле даты можно указать свою цену и валюту 2-м и 3-м токеном.</span>
+        </div>
+
+        <div class="inputs-grid">
+            <div class="input-col">
+                <label class="col-label" id="idsLabel" for="rawIds">ClientId (по одному на строку)</label>
+                <textarea id="rawIds"
+                          placeholder="1794765323277423091"
+                          aria-describedby="inputsHint errorBox"
+                          oninput="generate()">1794765323277423091</textarea>
+            </div>
+            <div class="input-col">
+                <label class="col-label" for="rawDates">Дата и время (ДД.ММ.ГГГГ ЧЧ:ММ)</label>
+                <textarea id="rawDates"
+                          placeholder="15.11.2026 20:55"
+                          aria-describedby="inputsHint errorBox"
+                          oninput="generate()">15.11.2026 20:55</textarea>
+            </div>
+        </div>
+        <div id="errorBox" class="error-msg" role="alert" aria-live="polite"></div>
+    </section>
+
+    <!-- Кнопки действий -->
+    <section aria-labelledby="actions-heading">
+        <h2 id="actions-heading" class="visually-hidden">Действия</h2>
+        <div class="actions">
+            <button class="btn btn-primary" type="button" onclick="downloadCSV()">Скачать файл .csv</button>
+            <button class="btn btn-secondary" type="button" onclick="copyCSV(event)">Скопировать CSV</button>
+            <button class="btn btn-outline" type="button" onclick="clearInput()">Очистить</button>
+        </div>
+    </section>
+
+    <!-- Результат -->
+    <section class="preview-section" aria-labelledby="preview-heading">
+        <div class="input-header">
+            <label id="preview-heading">Предпросмотр итогового CSV:</label>
+            <span class="hint" id="rowCount" aria-live="polite">Строк: 1</span>
+        </div>
+        <pre class="preview-box" id="csvPreview" role="region" aria-label="Предпросмотр CSV"></pre>
+    </section>
+
+</main>
+
+<noscript>
+    <p style="text-align:center; padding:24px; color:#dc2626;">
+        Для работы конвертера требуется включить JavaScript в браузере.
+    </p>
+</noscript>
+
+<script>
+    let currentMode = 'ClientId';
+    let generatedCSV = '';
+
+    function setMode(mode, btn) {
+        currentMode = mode;
+        document.querySelectorAll('.tab').forEach(t => {
+            t.classList.remove('active');
+            t.setAttribute('aria-selected', 'false');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+
+        const idsLabel = document.getElementById('idsLabel');
+        const idsField = document.getElementById('rawIds');
+
+        if (mode === 'ClientId') {
+            idsLabel.textContent = 'ClientId (по одному на строку)';
+            idsField.placeholder = '1794765323277423091';
+        } else {
+            idsLabel.textContent = 'yclid (по одному на строку)';
+            idsField.placeholder = '8472910482910482910';
+        }
+        generate();
+    }
+
+    // Парсинг даты формата "15.11.2026 20:55" (или с секундами "15.11.2026 20:55:00") как МСК (UTC+3)
+    function parseMskDateToUnix(dateStr, timeStr, offsetHours) {
+        const dParts = dateStr.split('.');
+        const tParts = timeStr.split(':');
+        if (dParts.length !== 3 || tParts.length < 2) return null;
+
+        const day = parseInt(dParts[0], 10);
+        const month = parseInt(dParts[1], 10) - 1;
+        const year = parseInt(dParts[2], 10);
+        const hour = parseInt(tParts[0], 10);
+        const minute = parseInt(tParts[1], 10);
+        const second = tParts[2] ? parseInt(tParts[2], 10) : 0;
+
+        if ([day, month, year, hour, minute, second].some(isNaN)) return null;
+
+        // Создаем UTC время и вычитаем 3 часа, чтобы получить точный timestamp для МСК (UTC+3)
+        // Затем прибавляем пользовательский сдвиг (по умолчанию +3 часа)
+        const utcMs = Date.UTC(year, month, day, hour - 3 + offsetHours, minute, second);
+        if (isNaN(utcMs)) return null;
+
+        return Math.floor(utcMs / 1000);
+    }
+
+    function generate() {
+        const rawIds = document.getElementById('rawIds').value;
+        const rawDates = document.getElementById('rawDates').value;
+        const defTarget = document.getElementById('defTarget').value.trim();
+        const defPrice = document.getElementById('defPrice').value.trim();
+        const defCurrency = document.getElementById('defCurrency').value.trim();
+        const offsetHours = parseFloat(document.getElementById('offsetHours').value) || 0;
+        const errorBox = document.getElementById('errorBox');
+
+        const header = `${currentMode},Target,DateTime,Price,Currency`;
+        const lines = [header];
+        const errors = [];
+
+        const idLines = rawIds.split(/\r?\n/);
+        const dateLines = rawDates.split(/\r?\n/);
+        const totalRows = Math.max(idLines.length, dateLines.length);
+
+        for (let i = 0; i < totalRows; i++) {
+            const id = (idLines[i] || '').trim();
+            const dateLine = (dateLines[i] || '').trim();
+
+            // Пропускаем полностью пустые строки с обоих концов
+            if (!id && !dateLine) continue;
+
+            if (!id) {
+                errors.push(`Строка ${i + 1}: отсутствует ${currentMode}`);
+                continue;
+            }
+            if (!dateLine) {
+                errors.push(`Строка ${i + 1}: отсутствует дата`);
+                continue;
+            }
+
+            // Разбиваем строку даты по пробелам/табуляции/запятым
+            const parts = dateLine.split(/[\s,;]+/);
+
+            // Ищем токен даты (ДД.ММ.ГГГГ)
+            const dateIdx = parts.findIndex(p => /^\d{2}\.\d{2}\.\d{4}$/.test(p));
+            if (dateIdx >= 0 && parts[dateIdx + 1] && /^\d{1,2}:\d{2}(:\d{2})?$/.test(parts[dateIdx + 1])) {
+                const dateStr = parts[dateIdx];
+                const timeStr = parts[dateIdx + 1];
+
+                // Если после времени указана индивидуальная цена — берем её, иначе общую
+                const customPrice = parts[dateIdx + 2] ? parts[dateIdx + 2] : defPrice;
+                const customCurrency = parts[dateIdx + 3] ? parts[dateIdx + 3] : defCurrency;
+
+                const unix = parseMskDateToUnix(dateStr, timeStr, offsetHours);
+                if (unix) {
+                    lines.push(`${id},${defTarget},${unix},${customPrice},${customCurrency}`);
+                } else {
+                    errors.push(`Строка ${i + 1}: некорректная дата "${dateStr} ${timeStr}"`);
+                }
+            } else {
+                errors.push(`Строка ${i + 1}: дата не в формате ДД.ММ.ГГГГ ЧЧ:ММ`);
+            }
+        }
+
+        errorBox.textContent = errors.join(' | ');
+        generatedCSV = lines.join('\r\n');
+        document.getElementById('csvPreview').textContent = generatedCSV;
+        document.getElementById('rowCount').textContent = `Конверсий: ${lines.length - 1}`;
+    }
+
+    function downloadCSV() {
+        if (!generatedCSV) return;
+        const blob = new Blob([generatedCSV], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const dateTag = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = `metrica_${currentMode.toLowerCase()}_${dateTag}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function copyCSV(evt) {
+        if (!generatedCSV) return;
+        // event доступен только синхронно — сохраняем кнопку до ухода в Promise
+        const btn = evt && evt.currentTarget;
+        navigator.clipboard.writeText(generatedCSV).then(() => {
+            if (!btn) return;
+            const orig = btn.textContent;
+            btn.textContent = 'Скопировано!';
+            setTimeout(() => btn.textContent = orig, 1500);
+        });
+    }
+
+    function clearInput() {
+        document.getElementById('rawIds').value = '';
+        document.getElementById('rawDates').value = '';
+        generate();
+    }
+
+    // Инициализация при открытии
+    generate();
+</script>
+
+</body>
+</html>
