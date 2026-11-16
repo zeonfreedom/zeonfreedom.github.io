@@ -1,0 +1,313 @@
+---
+title: Склейка этикеток Ozon
+description: Склеивает 1-ю и 2-ю страницы PDF в одну этикетку с поворотом, масштабом и отступами.
+icon: 🏷️
+order: 10
+---
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#005bff">
+    <title>Склейка этикеток Ozon</title>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <style>
+        :root {
+            --primary: #005bff;
+            --primary-dark: #0046c7;
+            --bg: #f2f4f8;
+            --card: #ffffff;
+            --text: #1a1a1a;
+            --border: #dce1e8;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .back-link {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            font-size: 14px;
+            color: var(--primary);
+            text-decoration: none;
+            background: var(--card);
+            padding: 8px 14px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            z-index: 1000;
+            font-weight: 500;
+        }
+        .back-link:active { background: #e8eef7; }
+
+        .container {
+            width: 100%;
+            max-width: 460px;
+            background: var(--card);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+        }
+
+        h1 { font-size: 20px; margin: 0 0 16px 0; text-align: center; color: var(--primary); }
+
+        .file-drop {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed var(--primary);
+            background: #f5f9ff;
+            border-radius: 12px;
+            padding: 24px 16px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 16px;
+            transition: background 0.2s;
+        }
+        .file-drop:active { background: #e6f0ff; }
+        .file-drop input { display: none; }
+        .file-icon { font-size: 32px; margin-bottom: 8px; }
+        .file-title { font-weight: 600; font-size: 16px; color: var(--primary); }
+        .file-name { font-size: 13px; color: #555; margin-top: 6px; word-break: break-all; }
+
+        details {
+            background: #f8f9fb;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 16px;
+        }
+        summary {
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            user-select: none;
+            color: #444;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .field label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .field input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:active { background: var(--primary-dark); }
+        .btn-secondary { background: #e8eef7; color: var(--primary); display: none; }
+
+        .status { text-align: center; font-size: 14px; margin-top: 8px; min-height: 20px; }
+        .error { color: #d93025; font-weight: 500; }
+        .success { color: #188038; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+    <a class="back-link" href="{{ '/' | relative_url }}">← Все приложения</a>
+
+    <div class="container">
+        <h1>Склейка этикеток Ozon</h1>
+
+        <label class="file-drop" id="dropZone">
+            <input type="file" id="pdfInput" accept="application/pdf">
+            <div class="file-icon">📄</div>
+            <div class="file-title">Нажмите, чтобы выбрать PDF</div>
+            <div class="file-name" id="fileName">Файл должен содержать минимум 2 страницы</div>
+        </label>
+
+        <details>
+            <summary>⚙️ Настройки отступов и масштаба</summary>
+            <div class="settings-grid">
+                <div class="field">
+                    <label>Масштаб 1-й стр. (top_scale)</label>
+                    <input type="number" id="topScale" step="0.05" value="1.1">
+                </div>
+                <div class="field">
+                    <label>Отступ между (gap_mm)</label>
+                    <input type="number" id="gapMm" step="1" value="0">
+                </div>
+                <div class="field">
+                    <label>Отступ сверху (мм)</label>
+                    <input type="number" id="topMarginMm" step="1" value="0">
+                </div>
+                <div class="field">
+                    <label>Отступ снизу (мм)</label>
+                    <input type="number" id="bottomMarginMm" step="1" value="40">
+                </div>
+            </div>
+        </details>
+
+        <button class="btn btn-primary" onclick="processPdf()">Склеить и скачать (_ready.pdf)</button>
+        <button class="btn btn-secondary" id="shareBtn" onclick="sharePdf()">📤 Отправить на печать / Поделиться</button>
+
+        <div class="status" id="statusText"></div>
+    </div>
+
+    <script>
+        let generatedBlob = null;
+        let generatedFilename = 'label_ready.pdf';
+
+        document.getElementById('pdfInput').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('statusText').textContent = '';
+                document.getElementById('shareBtn').style.display = 'none';
+            }
+        });
+
+        async function processPdf() {
+            const fileInput = document.getElementById('pdfInput');
+            const statusEl = document.getElementById('statusText');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                statusEl.className = 'status error';
+                statusEl.textContent = 'Ошибка: Сначала выберите PDF-файл!';
+                return;
+            }
+
+            try {
+                statusEl.className = 'status';
+                statusEl.textContent = 'Обработка...';
+
+                const gapMm = parseFloat(document.getElementById('gapMm').value) || 0;
+                const topMarginMm = parseFloat(document.getElementById('topMarginMm').value) || 0;
+                const bottomMarginMm = parseFloat(document.getElementById('bottomMarginMm').value) || 0;
+                const topScale = parseFloat(document.getElementById('topScale').value) || 1.0;
+
+                const PT_PER_MM = 2.83465;
+                const gapPoints = gapMm * PT_PER_MM;
+                const topMarginPoints = topMarginMm * PT_PER_MM;
+                const bottomMarginPoints = bottomMarginMm * PT_PER_MM;
+
+                const arrayBuffer = await file.arrayBuffer();
+                const { PDFDocument, degrees } = PDFLib;
+
+                const srcDoc = await PDFDocument.load(arrayBuffer);
+                if (srcDoc.getPageCount() < 2) {
+                    statusEl.className = 'status error';
+                    statusEl.textContent = 'Ошибка: В файле должно быть минимум 2 страницы!';
+                    return;
+                }
+
+                const outDoc = await PDFDocument.create();
+                const [page1, page2] = await outDoc.embedPdf(srcDoc, [0, 1]);
+
+                const w1Orig = page1.width;
+                const h1Orig = page1.height;
+
+                const w1Rotated = h1Orig * topScale;
+                const h1Rotated = w1Orig * topScale;
+
+                const w2 = page2.width;
+                const h2 = page2.height;
+
+                const targetWidth = Math.max(w1Rotated, w2);
+                const targetHeight = topMarginPoints + h1Rotated + gapPoints + h2 + bottomMarginPoints;
+
+                const newPage = outDoc.addPage([targetWidth, targetHeight]);
+
+                const xOffset1 = (targetWidth - w1Rotated) / 2;
+                const yTop1 = targetHeight - topMarginPoints;
+
+                newPage.drawPage(page1, {
+                    x: xOffset1,
+                    y: yTop1,
+                    width: h1Rotated,
+                    height: w1Rotated,
+                    rotate: degrees(-90)
+                });
+
+                const xOffset2 = (targetWidth - w2) / 2;
+                const yStartPage2FromTop = topMarginPoints + h1Rotated + gapPoints;
+                const yBottom2 = targetHeight - yStartPage2FromTop - h2;
+
+                newPage.drawPage(page2, {
+                    x: xOffset2,
+                    y: yBottom2,
+                    width: w2,
+                    height: h2
+                });
+
+                const pdfBytes = await outDoc.save();
+                generatedBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const baseName = file.name.replace(/\.pdf$/i, '');
+                generatedFilename = `${baseName}_ready.pdf`;
+
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(generatedBlob);
+                link.download = generatedFilename;
+                link.click();
+
+                statusEl.className = 'status success';
+                statusEl.textContent = `Готово! Сохранен как ${generatedFilename}`;
+
+                if (navigator.canShare) {
+                    document.getElementById('shareBtn').style.display = 'flex';
+                }
+            } catch (err) {
+                console.error(err);
+                statusEl.className = 'status error';
+                statusEl.textContent = 'Ошибка при обработке PDF.';
+            }
+        }
+
+        async function sharePdf() {
+            if (!generatedBlob) return;
+            const fileToShare = new File([generatedBlob], generatedFilename, { type: 'application/pdf' });
+            if (navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
+                try {
+                    await navigator.share({
+                        files: [fileToShare],
+                        title: generatedFilename
+                    });
+                } catch (err) {
+                    // Пользователь отменил отправку
+                }
+            } else {
+                alert('Ваш браузер не поддерживает прямую отправку файлов. Откройте файл из папки «Загрузки».');
+            }
+        }
+    </script>
+</body>
+</html>
