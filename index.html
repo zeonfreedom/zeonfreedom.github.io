@@ -1,0 +1,132 @@
+---
+layout: null
+---
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#005bff">
+    <title>Приложения</title>
+    <style>
+        :root {
+            --primary: #005bff;
+            --bg: #f2f4f8;
+            --card: #ffffff;
+            --text: #1a1a1a;
+            --muted: #666;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 24px 16px 48px;
+        }
+
+        .wrap { max-width: 900px; margin: 0 auto; }
+
+        header { text-align: center; margin-bottom: 32px; }
+        h1 { font-size: 28px; margin: 0 0 8px; }
+        .subtitle { color: var(--muted); font-size: 15px; margin: 0; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 16px;
+        }
+
+        .card {
+            display: flex;
+            flex-direction: column;
+            background: var(--card);
+            border-radius: 16px;
+            padding: 20px;
+            text-decoration: none;
+            color: inherit;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+            transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+            border: 1px solid transparent;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            border-color: var(--primary);
+        }
+
+        .card-icon { font-size: 40px; margin-bottom: 12px; line-height: 1; }
+        .card-icon img { width: 40px; height: 40px; object-fit: contain; }
+        .card-title { font-size: 17px; font-weight: 600; margin: 0 0 6px; }
+        .card-desc { font-size: 14px; color: var(--muted); margin: 0; line-height: 1.4; }
+
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+        .empty-icon { font-size: 48px; margin-bottom: 16px; }
+        .empty-code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: ui-monospace, Menlo, monospace;
+            font-size: 13px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <header>
+            <h1>Приложения</h1>
+            <p class="subtitle">Небольшие инструменты для повседневных задач</p>
+        </header>
+
+        {%- assign all_apps = site.pages | where_exp: "p", "p.path contains 'apps/'" -%}
+        {%- assign ordered_apps = all_apps | where_exp: "p", "p.order" | sort: "order" -%}
+        {%- assign other_apps   = all_apps | where_exp: "p", "p.order == nil" | sort: "title" -%}
+        {%- assign apps = ordered_apps | concat: other_apps -%}
+
+        {%- if apps.size == 0 -%}
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>Пока нет приложений.</p>
+                <p>Добавьте <code class="empty-code">.html</code> файл в
+                   <code class="empty-code">apps/</code> с front matter — он появится здесь.</p>
+            </div>
+        {%- else -%}
+            <main class="grid">
+                {%- for app in apps -%}
+                    {%- assign app_title = app.title | default: app.name | default: "Без названия" -%}
+                    {%- assign app_desc  = app.description | default: app.desc -%}
+                    {%- assign app_icon  = app.icon | default: "📱" -%}
+                    <a class="card" href="{{ app.url | relative_url }}">
+                        <div class="card-icon">
+                            {%- if app_icon contains '/' or app_icon contains 'http' -%}
+                                <img src="{{ app_icon | relative_url }}" alt="">
+                            {%- else -%}
+                                {{ app_icon }}
+                            {%- endif -%}
+                        </div>
+                        <h2 class="card-title">{{ app_title }}</h2>
+                        {%- if app_desc -%}
+                            <p class="card-desc">{{ app_desc }}</p>
+                        {%- endif -%}
+                    </a>
+                {%- endfor -%}
+            </main>
+        {%- endif -%}
+
+        <footer>
+            <p>Добавьте <code class="empty-code">.html</code> в
+               <code class="empty-code">apps/</code> с front matter — он появится здесь автоматически.</p>
+        </footer>
+    </div>
+</body>
+</html>
